@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# First run on a server: the two secrets and config/users.yml. Never
+# overwrites what is already there, so running it again is harmless.
+set -eu
+cd "$(dirname "$0")/.."
+umask 077
+
+mkdir -p secrets
+for s in SESSION_SECRET STORAGE_ENCRYPTION_KEY; do
+  if [ -s "secrets/$s" ]; then
+    echo "secrets/$s: already there, kept"
+  else
+    openssl rand -hex 64 > "secrets/$s"
+    echo "secrets/$s: created"
+  fi
+done
+
+if [ -e config/users.yml ]; then
+  echo "config/users.yml: already there, kept"
+else
+  cp config/users.example.yml config/users.yml
+  echo "config/users.yml: created from users.example.yml"
+fi
+
+cat <<'NEXT'
+
+Next:
+  1. bin/hash                once per person; it prints their password line
+  2. nano config/users.yml   names, emails, those password lines, groups
+  3. docker compose up -d && docker compose logs -f authelia
+                             wait for "Startup complete", then Ctrl+C
+  4. bin/check-login <name>  tests a name and password from here
+
+Keep a copy of secrets/STORAGE_ENCRYPTION_KEY off the server: the registered
+passkeys and authenticator apps can't be read without it.
+NEXT

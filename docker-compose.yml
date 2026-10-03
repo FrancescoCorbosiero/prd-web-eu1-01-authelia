@@ -1,14 +1,17 @@
-# Authelia: the sign-in in front of every Store Hub address on this server.
-# Caddy asks it about each request (forward auth) before the app sees it.
-# One per server, like Caddy: a second shop adds its addresses to
-# config/configuration.yml instead of running another one.
+# Authelia: the sign-in in front of the sites on this server (prd-web-eu1-01).
+# Caddy asks it about each request (forward auth) before a site sees it.
+# One per server, like Caddy: a new site adds its addresses to
+# config/configuration.yml instead of running another Authelia.
 #
-#   cd deploy/authelia
-#   # secrets, config and users first: docs/auth.md, "Set up Authelia"
+# This repo is cloned once, to /srv/authelia, and runs from there (README.md):
+#
+#   git clone https://github.com/FrancescoCorbosiero/prd-web-eu1-01-authelia /srv/authelia
+#   cd /srv/authelia && bin/setup      # secrets and users.yml
 #   docker compose up -d
 #
-# The shop stacks reach it as authelia:9091 on Caddy's network (their labels
-# in deploy/docker-compose.yml), so the service keeps that name.
+# The sites reach it as authelia:9091 on Caddy's network (their Caddy labels),
+# so the service keeps that name. The project name is fixed, so its volumes
+# are always authelia_data and authelia_sessions.
 name: authelia
 
 x-logging: &logging
