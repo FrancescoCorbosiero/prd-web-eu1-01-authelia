@@ -1,10 +1,12 @@
 # yaml-language-server: $schema=https://www.authelia.com/schemas/v4.39/json-schema/configuration.json
 # -----------------------------------------------------------------------------
-# Authelia for Store Hub. Copy to configuration.yml (same folder), then change
-# the addresses in the two places marked CHANGE: `session.cookies` (where
-# people sign in) and `access_control` (who may open what). The rest is the
-# house setup, explained in docs/auth.md. No secrets in here: they are files
-# in ../secrets.
+# Authelia on prd-web-eu1-01: this server's settings, kept in git. Change them
+# with a commit, then on the server: git pull && docker compose restart authelia
+# (nobody is signed out). A new site: README.md, "Protect another site".
+#
+# The sites are listed twice: under `session.cookies` (where people sign in)
+# and in `access_control` (who may open what). No secrets in here: they are
+# files in ../secrets, and the people are in users.yml, outside git.
 # -----------------------------------------------------------------------------
 
 theme: auto
@@ -41,7 +43,7 @@ identity_validation:
 
 authentication_backend:
   # No email server, so no "forgot password" link: an operator sets a new one
-  # (docs/auth.md). Signed in, people can change their own password.
+  # (README.md). Signed in, people can change their own password.
   password_reset:
     disable: true
   file:
@@ -67,10 +69,12 @@ session:
   # not.
   remember_me: 1 month
   cookies:
-    # CHANGE: one entry per address, each with its own sign-in pages. A
-    # session is valid on its own address only: signing in on the Hub does not
-    # open the Vetrina, and the cookie never reaches the shop's own site or any
-    # other subdomain.
+    # One entry per address, each with its own sign-in pages under /authelia.
+    # A session is valid on its own address only: signing in on the Hub does
+    # not open the Vetrina, and the cookie never reaches the shop's own site or
+    # any other subdomain.
+
+    # Store Hub, Resell Piacenza
     - domain: hub.resellpiacenza.shop
       authelia_url: https://hub.resellpiacenza.shop/authelia
       default_redirection_url: https://hub.resellpiacenza.shop/
@@ -99,7 +103,7 @@ storage:
 
 notifier:
   # No email server: one-time codes are written to this file, and an operator
-  # passes them on (docs/auth.md, "Add a person"). With an SMTP server
+  # passes them on (README.md, "Add a person"). With an SMTP server
   # instead, people receive them by email.
   filesystem:
     filename: /config/notification.txt
@@ -109,8 +113,7 @@ access_control:
   # here that is not listed.
   default_policy: deny
   rules:
-    # CHANGE: the same addresses as in session.cookies, in every rule.
-
+    # Store Hub, Resell Piacenza.
     # The home-screen app's install files: they hold no data, and phones
     # fetch them without the session cookie.
     - domain:

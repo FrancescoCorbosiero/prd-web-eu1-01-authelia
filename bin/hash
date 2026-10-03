@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# The password line for config/users.yml. The password is typed here, hidden,
+# twice; it is never stored and never lands in the shell history.
+set -eu
+read -rsp "Password: " pw; echo
+read -rsp "Same password again: " again; echo
+if [ -z "$pw" ]; then echo "The password is empty." >&2; exit 1; fi
+if [ "$pw" != "$again" ]; then echo "The two don't match, nothing made." >&2; exit 1; fi
+
+digest=$(docker run --rm authelia/authelia:4.39 authelia crypto hash generate argon2 --password "$pw" | sed -n 's/^Digest: //p')
+if [ -z "$digest" ]; then echo "Authelia gave no hash back." >&2; exit 1; fi
+
+echo
+echo "In config/users.yml, make this the person's password line (same indentation as their email line):"
+echo
+echo "    password: '$digest'"

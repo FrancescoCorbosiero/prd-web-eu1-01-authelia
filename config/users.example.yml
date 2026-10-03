@@ -1,29 +1,31 @@
 # yaml-language-server: $schema=https://www.authelia.com/schemas/v4.39/json-schema/user-database.json
 # -----------------------------------------------------------------------------
-# Who can sign in. Copy to users.yml (same folder) and replace both examples.
-# Edits apply without a restart.
+# Who can sign in. bin/setup copies this to users.yml (not in git): replace the
+# examples there, or delete the ones you don't need yet. Edits apply without a
+# restart.
 #
-# Groups decide which addresses a person opens (access_control in
-# configuration.yml): `operators` open the Hub and every Vetrina; a shop's own
-# group (here `resellpiacenza`) opens that shop's Vetrina only.
-#
-# Passwords go in as a hash, never in clear. Make one with:
-#   docker run --rm -it authelia/authelia:4.39 authelia crypto hash generate argon2
-# and paste the "Digest:" value. Authelia does not start until every password
-# below is a real hash.
+# - The name under `users:` is what people type to sign in: not the display
+#   name, not the email. Keep it lowercase; it is case-sensitive.
+# - `password` is a hash, never the password itself: run bin/hash and paste the
+#   line it prints. Authelia does not start while a password is still
+#   "paste-the-hash-here".
+# - Groups decide which addresses a person opens (access_control in
+#   configuration.yml): `operators` open every site; a shop's own group (here
+#   `resellpiacenza`) opens that shop's Vetrina only.
 #
 # To remove someone: delete their entry, or add `disabled: true` to keep it.
+# Check a sign-in that fails: bin/check-login <name>.
 # -----------------------------------------------------------------------------
 users:
   operator:
     displayname: Operator
     email: operator@example.com
-    password: paste-the-digest-here
+    password: paste-the-hash-here
     groups:
       - operators
   shop:
     displayname: Resell Piacenza
     email: shop@example.com
-    password: paste-the-digest-here
+    password: paste-the-hash-here
     groups:
       - resellpiacenza

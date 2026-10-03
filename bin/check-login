@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Why doesn't someone get in? Checks, from this server: that Authelia runs,
+# the name they type, their entry in users.yml, their password against its
+# hash, bans, and what Authelia logged about them.
+#   bin/check-login <name>
+set -u
+cd "$(dirname "$0")/.."
+users=config/users.yml
+name=${1:-}
+if [ -z "$name" ]; then echo "Usage: bin/check-login <name they type>"; exit 2; fi
+if [ ! -f "$users" ]; then echo "PROBLEM  no $users: run bin/setup"; exit 1; fi
+
+problem=0
+ok() { echo "ok       $*"; }
+bad() { echo "PROBLEM  $*"; problem=1; }
+
+# Authelia itself
+if docker compose ps --status running --services 2>/dev/null | grep -qx authelia; then
+  ok "Authelia is running"
+else
+  bad "Authelia is not running. Its last words:"
+  docker compose logs --tail 15 authelia 2>&1 | sed 's/^/           /'
+fi
+
+# The entry: users.yml as written by hand (2 spaces) or as Authelia re-saves it (4).
+entry=$(awk -v u="$name" '
+  /^users:/ { inside = 1; next }
+  inside && /^[^[:space:]#]/ { inside = 0 }
+  !inside || /^[[:space:]]*(#|$)/ { next }
+  { match($0, /^[[:space:]]+/); depth = RLENGTH; line = substr($0, depth + 1) }
+  !keydepth && line ~ /:[[:space:]]*$/ { keydepth = depth }
+  depth == keydepth { key = line; sub(/:[[:space:]]*$/, "", key); gsub(/["\047]/, "", key); current = key; print "name\t" key; next }
+  current == u && depth > keydepth && line ~ /^(password|disabled|displayname|email):/ {
+    field = line; sub(/:.*/, "", field); value = line; sub(/^[^:]*:[[:space:]]*/, "", value); gsub(/^["\047]|["\047][[:space:]]*$/, "", value)
+    print field "\t" value
+  }
+  current == u && depth > keydepth && line ~ /^- / { group = line; sub(/^- /, "", group); gsub(/["\047]/, "", group); print "group\t" group }
+' "$users")
+
+names=$(printf '%s\n' "$entry" | awk -F'\t' '$1 == "name" { print $2 }')
+get() { printf '%s\n' "$entry" | awk -F'\t' -v f="$1" '$1 == f { print $2; exit }'; }
+
+if printf '%s\n' "$names" | grep -qxF -- "$name"; then
+  ok "\"$name\" is in users.yml"
+else
+  bad "\"$name\" is not a name in users.yml. The names there: $(printf '%s ' $names)"
+  for n in $names; do
+    if [ "$(printf '%s' "$n" | tr '[:upper:]' '[:lower:]')" = "$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')" ]; then
+      echo "         Names are case-sensitive: type \"$n\"."
+    fi
+  done
+  grep -qiE "^[[:space:]]+(displayname|email):[[:space:]]*[\"']?$name[\"']?[[:space:]]*$" "$users" &&
+    echo "         \"$name\" is someone's display name or email: people type the name under users: instead."
+  exit 1
+fi
+
+[ "$(get disabled)" = "true" ] && bad "$name has disabled: true" || ok "$name is not disabled"
+echo "         groups: $(printf '%s\n' "$entry" | awk -F'\t' '$1 == "group" { printf "%s ", $2 }')"
+
+digest=$(get password)
+case "$digest" in
+  '$argon2'*|'$2'*|'$6$'*|'$5$'*|'$pbkdf2'*|'$scrypt'*) ok "the password field holds a hash" ;;
+  *) bad "the password field is not a hash (\"$digest\"): run bin/hash and paste its line" ;;
+esac
+
+# The password, against the hash Authelia actually uses
+read -rsp "Type $name's password (hidden), or just Enter to skip: " pw; echo
+if [ -n "$pw" ]; then
+  result=$(docker run --rm authelia/authelia:4.39 authelia crypto hash validate --password "$pw" -- "$digest" 2>&1)
+  case "$result" in
+    *"does not match"*) bad "that password does not match the hash in users.yml: make a new one with bin/hash" ;;
+    *"matches"*) ok "that password matches the hash in users.yml" ;;
+    *) bad "could not check the password: $result" ;;
+  esac
+fi
+
+# Bans after wrong passwords
+bans=$(docker compose exec -T authelia authelia storage bans user list 2>/dev/null | awk -v u="$name" '$2 == u')
+if [ -n "$bans" ]; then
+  bad "$name is banned after wrong passwords: $bans"
+  echo "         Lift it: docker compose exec authelia authelia storage bans user revoke $name"
+else
+  ok "$name is not banned"
+fi
+
+echo
+echo "What Authelia logged about $name in the last 2 hours:"
+docker compose logs --since 2h authelia 2>/dev/null | grep -iF -- "$name" | tail -n 8 | sed 's/^/  /'
+echo
+if [ "$problem" = 0 ]; then
+  echo "All good from here. If the browser still refuses: on the page you sign in on,"
+  echo "look for \"Powered by Authelia\" under the form. A page with only a password box"
+  echo "is the shop's old login: that address is not switched to Authelia yet."
+fi
+exit "$problem"

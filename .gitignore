@@ -1,0 +1,4 @@
+# Never in git: the people (password hashes, emails), the secrets, local settings.
+config/users.yml
+secrets/
+.env
