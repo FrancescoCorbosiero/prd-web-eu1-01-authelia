@@ -176,9 +176,78 @@ registers again.
    check that the request came through Caddy, the way Store Hub does with its
    `AUTH_PROXY_SECRET`.
 
+## A second factor (optional)
+
+Authelia can also ask for a second step after the password: a code from an
+authenticator app (Google Authenticator, Aegis, 1Password...) or a passkey
+(Face ID, a fingerprint, a security key). It's off today. A stolen or guessed
+password is then not enough on its own, which matters most for the admin
+account, since it opens every shop.
+
+**1. Turn the methods on.** In `config/configuration.yml`, replace the `totp`
+and `webauthn` blocks (they say `disable: true`) with:
+
+```yaml
+totp:
+  issuer: Store Hub            # the name shown in the authenticator app
+webauthn:
+  display_name: Store Hub
+  enable_passkey_login: true   # "Sign in with a passkey" fills in the name too
+identity_validation:
+  elevated_session:
+    # Adding or removing a device: confirm with one already registered.
+    require_second_factor: true
+    skip_second_factor: true
+```
+
+**2. Choose who must use it.** Rules apply top to bottom and the first that
+matches wins. For the admin only, add this rule above the shops' rules in
+`access_control`, listing every address:
+
+```yaml
+    - domain:
+        - hub.shoesclothingstore.com
+        - vetrina.shoesclothingstore.com
+        - hub.resellpiacenza.shop
+        - vetrina.resellpiacenza.shop
+      subject: 'group:operators'
+      policy: two_factor
+```
+
+For everyone, change each shop rule's `policy: one_factor` to `two_factor`
+instead.
+
+**3. Apply:** commit, then here `git pull && docker compose restart authelia`.
+
+**4. Register a device.** At their next sign-in, those people are asked to
+register one (*Registra dispositivo*). The first needs a one-time code "sent
+by email". There is no email server, so it's written to a file; it's valid
+for 5 minutes:
+
+```bash
+docker compose exec authelia tail -n 25 /config/notification.txt
+```
+
+A passkey only works on the address it was registered on, so an admin
+registers one per address. An authenticator app's codes work on every
+address: register both, so a lost phone isn't a lockout.
+
+**A lost phone or passkey:** delete their devices, and they register new ones
+at the next sign-in:
+
+```bash
+docker compose exec authelia authelia storage user webauthn delete <name> --all
+docker compose exec authelia authelia storage user totp delete <name>
+```
+
+To turn it off again, put `disable: true` back and the rules to `one_factor`:
+registered devices stay in the database, unused.
+
 ## Email (optional)
 
-With an SMTP server, people can reset a forgotten password themselves. In `config/configuration.yml`, replace the `notifier`
+With an SMTP server, people can reset a forgotten password themselves, and
+the one-time codes of [a second factor](#a-second-factor-optional) arrive by
+email. In `config/configuration.yml`, replace the `notifier`
 block:
 
 ```yaml
