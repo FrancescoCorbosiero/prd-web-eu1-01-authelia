@@ -22,8 +22,8 @@ log:
   level: info
 
 # Name and password only: no second factor (authenticator app, passkey) is
-# asked, offered or registered. Every rule below is one_factor. To bring it
-# back, enable these again and set a rule's policy to two_factor.
+# asked, offered or registered. Every rule below is one_factor. To ask for one,
+# for the admin only or for everyone: README.md, "A second factor".
 totp:
   disable: true
 webauthn:
