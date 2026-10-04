@@ -7,13 +7,18 @@ a passkey (Face ID, a fingerprint, a security key) or an authenticator app.
 
 One Authelia per server, like Caddy. It lives here, cloned once to
 `/srv/authelia`. Every site behind it is listed in
-[config/configuration.yml](config/configuration.yml). Today that is Store Hub
-for Resell Piacenza:
+[config/configuration.yml](config/configuration.yml). Today that is Store Hub,
+for two shops:
 
 | Address | Who can open it |
 | --- | --- |
-| `hub.resellpiacenza.shop` | operators (group `operators`) |
+| `hub.shoesclothingstore.com` | operators (group `operators`) |
+| `vetrina.shoesclothingstore.com` | the shop's people (group `shoesclothingstore`) and operators |
+| `hub.resellpiacenza.shop` | operators |
 | `vetrina.resellpiacenza.shop` | the shop's people (group `resellpiacenza`) and operators |
+
+A site listed here but not running yet is harmless: nothing reaches Authelia
+for it until its container is up behind Caddy.
 
 How a request goes through, and why the sign-in pages live on each address
 under `/authelia`: [Store Hub's docs/auth.md](https://github.com/FrancescoCorbosiero/kicks-js-proxy/blob/main/docs/auth.md).
@@ -79,7 +84,7 @@ users:
     email: you@example.com     # required, even without an email server
     password: '$argon2id$...'  # the line bin/hash printed
     groups:
-      - operators              # or the shop's group, e.g. resellpiacenza
+      - operators              # or the shop's group, e.g. shoesclothingstore
 ```
 
 It applies at once, with no restart. Then:
