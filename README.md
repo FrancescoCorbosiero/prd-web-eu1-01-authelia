@@ -2,20 +2,21 @@
 
 The sign-in in front of the sites on this server. Caddy (caddy-docker-proxy)
 asks Authelia about every request to a protected address, before the site
-sees it. Everyone has their own account, with a password and a second factor:
-a passkey (Face ID, a fingerprint, a security key) or an authenticator app.
+sees it. Everyone signs in with their own name and password. Five wrong
+passwords lock that name for 15 minutes, which stops bots guessing.
 
 One Authelia per server, like Caddy. It lives here, cloned once to
 `/srv/authelia`. Every site behind it is listed in
 [config/configuration.yml](config/configuration.yml). Today that is Store Hub,
 for two shops:
 
-| Address | Who can open it |
-| --- | --- |
-| `hub.shoesclothingstore.com` | operators (group `operators`) |
-| `vetrina.shoesclothingstore.com` | the shop's people (group `shoesclothingstore`) and operators |
-| `hub.resellpiacenza.shop` | operators |
-| `vetrina.resellpiacenza.shop` | the shop's people (group `resellpiacenza`) and operators |
+| Account | Group | Opens |
+| --- | --- | --- |
+| the admin (e.g. `operator`) | `operators` | every address below |
+| Shoes Clothing Store's (e.g. `shoesclothing`) | `shoesclothingstore` | `hub.shoesclothingstore.com`, `vetrina.shoesclothingstore.com` |
+| Resell Piacenza's (e.g. `resellpiacenza`) | `resellpiacenza` | `hub.resellpiacenza.shop`, `vetrina.resellpiacenza.shop` |
+
+The group decides what an account opens, not its name.
 
 A site listed here but not running yet is harmless: nothing reaches Authelia
 for it until its container is up behind Caddy.
@@ -33,7 +34,7 @@ under `/authelia`: [Store Hub's docs/auth.md](https://github.com/FrancescoCorbos
 | `secrets/` | two random keys, made by `bin/setup`. **Not in git** |
 | `bin/setup`, `bin/hash`, `bin/check-login` | first run, password hashes, why a sign-in fails |
 
-Authelia's database (registered passkeys and authenticator apps, bans) and
+Authelia's database (bans after wrong passwords) and
 `notification.txt` live in the `authelia_data` volume. The sessions live in
 `authelia_sessions`.
 
@@ -53,15 +54,15 @@ docker compose logs -f authelia     # wait for "Startup complete", then Ctrl+C
 bin/check-login operator     # tests a name and password from the server
 ```
 
-Keep a copy of `secrets/STORAGE_ENCRYPTION_KEY` off the server: the registered
-devices can't be read without it.
+Keep a copy of `secrets/STORAGE_ENCRYPTION_KEY` off the server: Authelia's
+database can't be read without it.
 
 A warning that it could not reach the NTP server is harmless. A warning that
 the clock is off is not: fix the server's time.
 
 ### Starting over
 
-To throw away an earlier Authelia (its people, devices, sessions) before
+To throw away an earlier Authelia (its database and sessions) before
 installing:
 
 ```bash
@@ -89,25 +90,15 @@ users:
 
 It applies at once, with no restart. Then:
 
-1. Give them the address, their name and their password. Once signed in, they
-   can change the password themselves at `/authelia/settings`.
+1. Give them the address, their name (the key under `users:`, not the email)
+   and their password.
 2. They sign in and tick **Remember me** (*Ricordami*). With it, the session
    lasts a month (three on the Vetrina), used or not. Without it, an idle hour
    or 12 hours sign them out.
-3. Authelia asks them to register a device (*Registra dispositivo*). A
-   **passkey** is the simplest (Face ID or a fingerprint). **Metodi** switches
-   to an authenticator app.
-4. The first device needs a one-time code "sent by email". There is no email
-   server, so the code is written to a file. Read it to them; it's valid for 5
-   minutes:
 
-   ```bash
-   docker compose exec authelia tail -n 25 /config/notification.txt
-   ```
-
-A passkey belongs to the address it was registered on: an operator registers
-one on the Hub and one on the Vetrina. An authenticator app's codes work on
-every address.
+Each address signs in on its own: signing in on the Hub doesn't sign you in
+on the Vetrina. To test another account, use a private window, or sign out
+first at `/authelia/logout` on that address.
 
 ## Sign-in doesn't work
 
@@ -139,7 +130,6 @@ From `/srv/authelia`:
 | --- | --- |
 | Remove someone | delete their entry in `config/users.yml`, or add `disabled: true`. Their sessions end at their next click |
 | Reset a forgotten password | `bin/hash`, then replace their `password:` line |
-| Deal with a lost phone or passkey | `docker compose exec authelia authelia storage user webauthn delete <name> --all`, and for the app `docker compose exec authelia authelia storage user totp delete <name>`. They register a new device at the next sign-in |
 | Unlock someone after wrong passwords | it lifts after 15 minutes, or now: `docker compose exec authelia authelia storage bans user revoke <name>` |
 | Sign everyone out | `docker compose exec redis redis-cli flushall` |
 | Change the settings | commit to `config/configuration.yml`, then here: `git pull && docker compose restart authelia` (nobody is signed out) |
@@ -163,8 +153,8 @@ registers again.
 ## Protect another site
 
 1. In `config/configuration.yml`, add its addresses under `session.cookies`
-   (copy an entry) and its rules under `access_control` (copy the Vetrina's,
-   with the group that may open it). Commit, then here:
+   (copy an entry) and a rule under `access_control` (copy a shop's, with
+   the group that may open it). Commit, then here:
    `git pull && docker compose restart authelia`.
 2. Give its people that group in `config/users.yml`.
 3. In the site's compose file, put these Caddy labels on its container, with
@@ -188,8 +178,7 @@ registers again.
 
 ## Email (optional)
 
-With an SMTP server, people get their codes by email and can reset a forgotten
-password themselves. In `config/configuration.yml`, replace the `notifier`
+With an SMTP server, people can reset a forgotten password themselves. In `config/configuration.yml`, replace the `notifier`
 block:
 
 ```yaml
@@ -215,6 +204,9 @@ and restart.
 - **Authelia restarts in a loop:** its log names the problem. Usually it's a
   `password:` that isn't a hash yet, or a YAML indentation slip in
   `users.yml`.
-- **403 after signing in:** that person's groups don't open this address.
+- **403 after signing in:** that account's group doesn't open this address.
+  Authelia's log names the account (`docker compose logs authelia | grep
+  forbidden`): often it's another account still signed in on that address.
+  Sign out at `/authelia/logout` and sign in again.
 - **The sign-in page comes back after signing in:** the address is missing
   from `session.cookies`, or the request did not arrive over https.
