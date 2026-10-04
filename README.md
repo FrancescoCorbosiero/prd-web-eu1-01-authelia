@@ -118,9 +118,11 @@ It checks, in order:
 - Authelia's own log lines about that person.
 
 If everything is fine but the browser still refuses, look at the page you sign
-in on. Authelia's says "Powered by Authelia" under the form. A page with only a
-password box is the site's own old login: that address isn't switched to
-Authelia yet.
+in on. Store Hub shows its own (the gold "S", *Accedi*): it sends the name and
+password to Authelia, which checks them as above. Authelia's own page, "Powered
+by Authelia" under the form, means that site's labels predate it, which is
+fine for any other site. A page with only a password box is the site's own old
+login: that address isn't switched to Authelia yet.
 
 ## Day to day
 
@@ -218,6 +220,9 @@ For everyone, change each shop rule's `policy: one_factor` to `two_factor`
 instead.
 
 **3. Apply:** commit, then here `git pull && docker compose restart authelia`.
+
+Store Hub's own sign-in page hands over to Authelia's page for this second
+step by itself.
 
 **4. Register a device.** At their next sign-in, those people are asked to
 register one (*Registra dispositivo*). The first needs a one-time code "sent
