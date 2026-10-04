@@ -10,8 +10,6 @@
 # -----------------------------------------------------------------------------
 
 theme: auto
-# New users are offered a passkey first (Face ID, fingerprint, a security key).
-default_2fa_method: webauthn
 
 server:
   # The sign-in pages are served on each protected address under /authelia
@@ -23,23 +21,13 @@ server:
 log:
   level: info
 
+# Name and password only: no second factor (authenticator app, passkey) is
+# asked, offered or registered. Every rule below is one_factor. To bring it
+# back, enable these again and set a rule's policy to two_factor.
 totp:
-  # The name shown in the authenticator app.
-  issuer: Store Hub
-
+  disable: true
 webauthn:
-  display_name: Store Hub
-  # "Sign in with a passkey" replaces typing the username. It counts as one
-  # factor, so the password is asked next: a passkey plus a password is the
-  # two factors every address requires.
-  enable_passkey_login: true
-
-identity_validation:
-  elevated_session:
-    # Adding or removing a 2FA device: someone who already has one confirms
-    # with it. The first device needs a one-time code instead (see notifier).
-    require_second_factor: true
-    skip_second_factor: true
+  disable: true
 
 authentication_backend:
   # No email server, so no "forgot password" link: an operator sets a new one
@@ -65,8 +53,7 @@ session:
   # Without "Remember me": signed out after an idle hour, or after 12 hours.
   inactivity: 1 hour
   expiration: 12 hours
-  # With "Remember me", and always after a passkey sign-in: a month, idle or
-  # not.
+  # With "Remember me": a month, idle or not.
   remember_me: 1 month
   cookies:
     # One entry per address, each with its own sign-in pages under /authelia.
@@ -107,14 +94,14 @@ regulation:
   ban_time: 15 minutes
 
 storage:
-  # 2FA devices, passkeys and bans: in the data volume (docker-compose.yml).
+  # Bans after wrong passwords: in the data volume (docker-compose.yml).
   local:
     path: /config/db.sqlite3
 
 notifier:
-  # No email server: one-time codes are written to this file, and an operator
-  # passes them on (README.md, "Add a person"). With an SMTP server
-  # instead, people receive them by email.
+  # No email server: Authelia's rare emails (a new sign-in method, a password
+  # reset) are written to this file instead. Nothing needs it with name and
+  # password only.
   filesystem:
     filename: /config/notification.txt
 
@@ -135,31 +122,23 @@ access_control:
         - '^/(apple-)?icon([?].*)?$'
       policy: bypass
 
-    # Store Hub, Shoes Clothing Store.
-    # The Hub: operators only.
-    - domain: hub.shoesclothingstore.com
-      subject: 'group:operators'
-      policy: two_factor
-
-    # The Vetrina: the shop's own people, and the operators.
-    - domain: vetrina.shoesclothingstore.com
+    # Each shop: its Hub and its Vetrina, for the shop's group and for the
+    # operators (group operators opens every shop).
+    - domain:
+        - hub.shoesclothingstore.com
+        - vetrina.shoesclothingstore.com
       subject:
         - 'group:operators'
         - 'group:shoesclothingstore'
-      policy: two_factor
+      policy: one_factor
 
-    # Store Hub, Resell Piacenza.
-    # The Hub: operators only.
-    - domain: hub.resellpiacenza.shop
-      subject: 'group:operators'
-      policy: two_factor
-
-    # The Vetrina: the shop's own people, and the operators.
-    - domain: vetrina.resellpiacenza.shop
+    - domain:
+        - hub.resellpiacenza.shop
+        - vetrina.resellpiacenza.shop
       subject:
         - 'group:operators'
         - 'group:resellpiacenza'
-      policy: two_factor
+      policy: one_factor
 
     # Only if an external scheduler calls a Hub's cron endpoints
     # (SCHEDULER=off and CRON_SECRET, see Store Hub's README): they carry their
