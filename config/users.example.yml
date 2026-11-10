@@ -11,7 +11,7 @@
 #   "paste-the-hash-here".
 # - Groups decide which addresses a person opens (access_control in
 #   configuration.yml): `operators` open every site; a shop's own group (here
-#   `shoesclothingstore` or `resellpiacenza`) opens that shop's Hub and Vetrina.
+#   `shoesclothingstore`, `resellpiacenza` or `sneakersselection`) opens that shop's Hub and Vetrina.
 #
 # To remove someone: delete their entry, or add `disabled: true` to keep it.
 # Check a sign-in that fails: bin/check-login <name>.
@@ -35,3 +35,9 @@ users:
     password: paste-the-hash-here
     groups:
       - resellpiacenza
+  sneakersselection:
+    displayname: Sneakers Selection
+    email: shop@example.com
+    password: paste-the-hash-here
+    groups:
+      - sneakersselection

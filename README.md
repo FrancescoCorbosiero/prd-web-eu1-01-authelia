@@ -8,13 +8,14 @@ passwords lock that name for 15 minutes, which stops bots guessing.
 One Authelia per server, like Caddy. It lives here, cloned once to
 `/srv/authelia`. Every site behind it is listed in
 [config/configuration.yml](config/configuration.yml). Today that is Store Hub,
-for two shops:
+for three shops:
 
 | Account | Group | Opens |
 | --- | --- | --- |
 | the admin (e.g. `operator`) | `operators` | every address below |
 | Shoes Clothing Store's (e.g. `shoesclothing`) | `shoesclothingstore` | `hub.shoesclothingstore.com`, `vetrina.shoesclothingstore.com` |
 | Resell Piacenza's (e.g. `resellpiacenza`) | `resellpiacenza` | `hub.resellpiacenza.shop`, `vetrina.resellpiacenza.shop` |
+| Sneakers Selection's (e.g. `sneakersselection`) | `sneakersselection` | `hub.sneakersselection.it`, `vetrina.sneakersselection.it` |
 
 The group decides what an account opens, not its name.
 
@@ -212,6 +213,8 @@ matches wins. For the admin only, add this rule above the shops' rules in
         - vetrina.shoesclothingstore.com
         - hub.resellpiacenza.shop
         - vetrina.resellpiacenza.shop
+        - hub.sneakersselection.it
+        - vetrina.sneakersselection.it
       subject: 'group:operators'
       policy: two_factor
 ```
